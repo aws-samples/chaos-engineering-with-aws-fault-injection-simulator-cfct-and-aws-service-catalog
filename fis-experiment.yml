@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: AWS Fault Injection Simulator sample template for EC2 and RDS experiment
+
+Resources:
+  FISRole: 
+    Type : AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonRDSFullAccess
+      Policies:
+        - PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - fis:*
+                Resource: '*'
+                Effect: Allow
+              - Action:
+                  - fis:InjectApiInternalError
+                  - fis:InjectApiThrottleError
+                  - fis:InjectApiUnavailableError
+                Resource: 'arn:*:fis:*:*:experiment/*'
+                Effect: Allow
+              - Action:
+                  - ec2:DescribeInstances
+                  - ecs:DescribeClusters
+                  - ecs:ListContainerInstances
+                  - eks:DescribeNodegroup
+                  - iam:ListRoles
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDbClusters
+                  - ssm:ListCommands
+                Resource: '*'
+                Effect: Allow
+              - Action:
+                  - ec2:RebootInstances
+                  - ec2:StopInstances
+                  - ec2:StartInstances
+                  - ec2:TerminateInstances
+                Resource: 'arn:aws:ec2:*:*:instance/*'
+                Effect: Allow
+              - Action:
+                  - ssm:SendCommand
+                Resource: 
+                  - 'arn:aws:ec2:*:*:instance/*'
+                  - 'arn:aws:ssm:*:*:document/*'
+                Effect: Allow
+              - Action:
+                  - ssm:CancelCommand
+                Resource: '*'
+                Effect: Allow
+          PolicyName: FIS-Experiment-Pol
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "fis.amazonaws.com"
+          Action: "sts:AssumeRole"
+  EC2Experiment:
+    Type: "AWS::FIS::ExperimentTemplate"
+    Properties:
+      Description: EC2 FIS experiment
+      Tags:
+        Name: StopEC2Instances
+      Actions:
+        StopInstances:    
+          ActionId: aws:ec2:stop-instances
+          Description: Stops the instances
+          Targets:
+            Instances: "EC2Victims"
+      Targets:
+        EC2Victims:
+          ResourceType: "aws:ec2:instance"
+          ResourceTags:
+            ChaosTesting: ChaosReady 
+          SelectionMode: ALL
+      StopConditions:
+        - Source: "none"
+      RoleArn:
+        !GetAtt 'FISRole.Arn'
+  RDSExperiment:
+    Type: "AWS::FIS::ExperimentTemplate"
+    Properties:
+      Description: "RDS FIS Experiment"
+      Tags:
+        Name: RebootRDSInstances
+      Actions:
+        StopInstances:
+          ActionId: aws:rds:reboot-db-instances
+          Description: Reboots database instances
+          Targets:
+            DBInstances: "RDSVictims"
+      Targets:
+        RDSVictims:
+          ResourceType: aws:rds:db
+          ResourceTags:
+            ChaosTesting: ChaosReady  
+          SelectionMode: ALL
+      StopConditions:
+        - Source: "none"
+      RoleArn:
+        !GetAtt 'FISRole.Arn'
