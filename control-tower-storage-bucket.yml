@@ -142,6 +142,15 @@ Resources:
             Principal: "*"
             Action: s3:DeleteBucket
             Resource: !Sub arn:${AWS::Partition}:s3:::${UploadBucketS3AccessLogsBucket}
+          - Action: s3:*
+            Effect: Deny
+            Principal: "*"
+            Resource: !Sub arn:${AWS::Partition}:s3:::${UploadBucketS3AccessLogsBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${UploadBucketS3AccessLogsBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${UploadBucketS3AccessLogsBucket}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: false
 
 Outputs:
   BucketName:
